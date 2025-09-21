@@ -1,4 +1,5 @@
 import streamlit as st
+import requests
 from graphviz import Digraph
 
 # ------------------- CSS Styling with background --------------------
@@ -10,7 +11,6 @@ st.markdown("""
     background-size: cover;
     position: relative;
 }
-
 /* Overlay for subtle dim */
 [data-testid="stAppViewContainer"]::before {
     content: "";
@@ -19,23 +19,20 @@ st.markdown("""
     width:100%; height:100%;
     background-color: rgba(255,255,255,0.2);
 }
-
 /* Card Styling */
 .card {
-    background-color: rgba(255, 255, 255, 0.9);
+    background-color: rgba(255, 255, 255, 0.95);
     border-radius: 15px;
     padding: 25px 35px;
     margin: 30px auto;
     max-width: 850px;
     box-shadow: 0 8px 20px rgba(0,0,0,0.15);
 }
-
 /* Headers */
 .card h2, .card h3 {
     color: #333;
     text-align: center;
 }
-
 /* Input fields */
 .card input, .card select {
     border-radius: 8px;
@@ -46,7 +43,6 @@ st.markdown("""
     width: 100%;
     margin-bottom: 10px;
 }
-
 /* Buttons */
 .card .stButton>button {
     width: 100%;
@@ -58,14 +54,12 @@ st.markdown("""
     border: none;
 }
 .card .stButton>button:hover { background: #45a049; }
-
 /* Tabs */
 .stTabs [role="tab"] {
     font-weight: bold;
     font-size: 16px;
     color: #333;
 }
-
 /* Badge links */
 .badge, .link-badge {
     display: inline-block;
@@ -76,7 +70,6 @@ st.markdown("""
 }
 .badge { background-color: #e0f0ff; color: #007acc; }
 .link-badge { background-color: #f0f0f0; color: #0645AD; text-decoration: none; }
-
 /* Profile icon */
 .profile-icon {
     position: fixed;
@@ -91,7 +84,6 @@ st.markdown("""
     color: white;
     z-index: 9999;
 }
-
 /* Role section box */
 .role-section {
     margin-bottom: 15px;
@@ -109,58 +101,24 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "show_results" not in st.session_state:
     st.session_state.show_results = False
-if "checklist_states" not in st.session_state:
-    st.session_state.checklist_states = {}
+if "username" not in st.session_state:
+    st.session_state.username = None
+if "user_data" not in st.session_state:
+    st.session_state.user_data = {}
 
-# ------------------- Mock Data --------------------
-def generate_mock_career_advice(user_data):
-    return {
-        "career": {
-            "Data Scientist": {
-                "Description": "Analyze and interpret complex data to help organizations make informed decisions.",
-                "Required Skills": ["Python", "SQL", "Machine Learning", "Data Visualization"],
-                "Next Steps": ["Build ML projects", "Complete Kaggle competitions", "Learn Cloud deployment"]
-            },
-            "Machine Learning Engineer": {
-                "Description": "Design and deploy ML models into production systems.",
-                "Required Skills": ["Python", "TensorFlow/PyTorch", "SQL", "Model Deployment"],
-                "Next Steps": ["Work on end-to-end ML projects", "Learn Docker/Kubernetes"]
-            },
-            "AI Developer": {
-                "Description": "Develop AI-powered applications and tools.",
-                "Required Skills": ["Python", "NLP/Computer Vision", "Deep Learning", "APIs"],
-                "Next Steps": ["Build AI apps", "Contribute to open-source AI projects"]
-            }
-        },
-        "roadmap": [
-            "Learn Python basics",
-            "SQL fundamentals",
-            "Data Analysis projects",
-            "Machine Learning projects",
-            "Advanced ML techniques",
-            "Cloud deployment & portfolio building"
-        ],
-        "skill_gap": (
-            "- Missing skills: Cloud Computing, Advanced ML, Data Visualization\n"
-            "- Plan: Complete projects, take online courses, practice daily\n"
-            "Practice Plan Checklist:\n- [ ] Python Intermediate\n- [ ] SQL Advanced\n- [ ] ML Projects\n- [ ] Cloud Basics"
-        ),
-        "learning": [
-            ("Coursera – Machine Learning", "https://www.coursera.org/learn/machine-learning"),
-            ("Udemy – Data Science Bootcamp", "https://www.udemy.com/course/data-science-bootcamp/"),
-            ("Kaggle – Hands-on Projects", "https://www.kaggle.com/")
-        ],
-        "practice_websites": [
-            ("LeetCode", "https://leetcode.com/"),
-            ("HackerRank", "https://www.hackerrank.com/"),
-            ("Kaggle", "https://www.kaggle.com/")
-        ],
-        "job_platforms": [
-            ("LinkedIn Jobs", "https://www.linkedin.com/jobs/"),
-            ("Naukri.com", "https://www.naukri.com/"),
-            ("Indeed", "https://www.indeed.com/")
-        ]
-    }
+# ------------------- API Call Function --------------------
+API_URL = "https://your-api-url.com/api/generate_career_advice"  # Replace with real API endpoint
+
+def call_career_advice_api(user_payload):
+    try:
+        response = requests.post(API_URL, json=user_payload, timeout=10)
+        if response.status_code == 200:
+            return response.json()  # Expecting structured career advice JSON
+        else:
+            st.error(f"API error: {response.status_code} - {response.text}")
+    except requests.exceptions.RequestException as e:
+        st.error(f"API connection error: {e}")
+    return None
 
 # ------------------- Render Helpers --------------------
 def render_badges(items, badge_class="badge", clickable=False):
@@ -176,7 +134,9 @@ def render_checklist(checklist_text):
         line = line.strip()
         if line.startswith("- [ ]"):
             label = line[5:].strip()
-            checked = st.session_state.checklist_states.get(label, False)
+            checked = st.session_state.get("checklist_states", {}).get(label, False)
+            if "checklist_states" not in st.session_state:
+                st.session_state.checklist_states = {}
             st.session_state.checklist_states[label] = st.checkbox(label, value=checked)
 
 def render_graphviz_roadmap(roadmap_steps):
@@ -192,12 +152,12 @@ def render_career_suggestions(career_dict):
     for role, details in career_dict.items():
         st.markdown(f'<div class="role-section">', unsafe_allow_html=True)
         st.subheader(role)
-        st.markdown(f"**Description:** {details['Description']}")
-        st.markdown("**Required Skills:** " + ", ".join(details["Required Skills"]))
-        st.markdown("**Next Steps:** " + " | ".join(details["Next Steps"]))
+        st.markdown(f"**Description:** {details.get('Description','')}")
+        st.markdown("**Required Skills:** " + ", ".join(details.get("Required Skills", [])))
+        st.markdown("**Next Steps:** " + " | ".join(details.get("Next Steps", [])))
         st.markdown('</div>', unsafe_allow_html=True)
 
-# ------------------- Login --------------------
+# ------------------- LOGIN --------------------
 if not st.session_state.logged_in:
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown("<h2>Login to Career Advisor</h2>", unsafe_allow_html=True)
@@ -207,19 +167,19 @@ if not st.session_state.logged_in:
         if username and email:
             st.session_state.logged_in = True
             st.session_state.username = username
-            st.rerun()
+            st.experimental_rerun()
         else:
             st.error("Please fill in all fields")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ------------------- Main App --------------------
+# ------------------- MAIN APP --------------------
 else:
     st.markdown(f'<div class="profile-icon">{st.session_state.username[0].upper()}</div>', unsafe_allow_html=True)
     st.title(f"Welcome {st.session_state.username} 👋")
     st.write("Explore your personalized career advisor dashboard.")
-
-    # -------------------- Input Form --------------------
+    
     if not st.session_state.show_results:
+        # Input form for user profile
         st.markdown('<div class="card">', unsafe_allow_html=True)
         st.header("Enter Your Profile Details")
         with st.form("user_input_form"):
@@ -236,29 +196,37 @@ else:
             skill_3_level = st.selectbox("Skill 3 Proficiency", ["Beginner", "Intermediate", "Advanced"])
             submit_btn = st.form_submit_button("Get Career Advice")
         st.markdown('</div>', unsafe_allow_html=True)
-
+        
         if submit_btn:
-            st.session_state.user_data = {
+            # Prepare user data payload
+            user_data = {
                 "age": age,
                 "location": location,
                 "education": education,
                 "experience": years_exp,
                 "target_role": target_role,
                 "skills": {
-                    skill_1: skill_1_level,
-                    skill_2: skill_2_level,
-                    skill_3: skill_3_level
+                    skill_1.strip(): skill_1_level,
+                    skill_2.strip(): skill_2_level,
+                    skill_3.strip(): skill_3_level
                 }
             }
-            st.session_state.show_results = True
-            st.rerun()
-
-    # -------------------- Results --------------------
+            st.session_state.user_data = user_data
+            
+            # Call API to generate career advice
+            advice_data = call_career_advice_api(user_data)
+            if advice_data:
+                st.session_state.advice_data = advice_data
+                st.session_state.show_results = True
+                st.experimental_rerun()
+            else:
+                st.error("Failed to get career advice. Please try again later.")
+    
     else:
-        user_data = st.session_state.user_data
-        sections = generate_mock_career_advice(user_data)
-
+        # Display advice results in tabs
+        advice = st.session_state.get("advice_data", {})
         st.header("AI-Powered Career Advisor Results")
+        
         tabs = st.tabs([
             "Career Suggestions",
             "Roadmap",
@@ -267,45 +235,45 @@ else:
             "Practice Websites",
             "Job Search Platforms"
         ])
-
+        
         with tabs[0]:
-            career_text = sections.get("career", {})
-            if career_text:
-                render_career_suggestions(career_text)
+            career = advice.get("career", {})
+            if career:
+                render_career_suggestions(career)
             else:
                 st.info("No career suggestions available.")
-
+        
         with tabs[1]:
-            roadmap_text = sections.get("roadmap", [])
-            if roadmap_text:
-                render_graphviz_roadmap(roadmap_text)
+            roadmap = advice.get("roadmap", [])
+            if roadmap:
+                render_graphviz_roadmap(roadmap)
             else:
                 st.info("No roadmap available.")
-
+        
         with tabs[2]:
-            skill_gap_text = sections.get("skill_gap", "")
-            if skill_gap_text:
-                render_checklist(skill_gap_text)
+            skill_gap = advice.get("skill_gap", "")
+            if skill_gap:
+                render_checklist(skill_gap)
             else:
                 st.info("No skill gap analysis available.")
-
+        
         with tabs[3]:
-            learning_text = sections.get("learning", [])
-            if learning_text:
-                render_badges(learning_text, badge_class="link-badge", clickable=True)
+            learning = advice.get("learning", [])
+            if learning:
+                render_badges(learning, badge_class="link-badge", clickable=True)
             else:
                 st.info("No learning resources provided.")
-
+        
         with tabs[4]:
-            practice_text = sections.get("practice_websites", [])
-            if practice_text:
-                render_badges(practice_text, badge_class="link-badge", clickable=True)
+            practice_websites = advice.get("practice_websites", [])
+            if practice_websites:
+                render_badges(practice_websites, badge_class="link-badge", clickable=True)
             else:
                 st.info("No practice websites listed.")
-
+        
         with tabs[5]:
-            job_text = sections.get("job_platforms", [])
-            if job_text:
-                render_badges(job_text, badge_class="link-badge", clickable=True)
+            job_platforms = advice.get("job_platforms", [])
+            if job_platforms:
+                render_badges(job_platforms, badge_class="link-badge", clickable=True)
             else:
-                st.info("No job search platforms available.") 
+                st.info("No job search platforms available.")
