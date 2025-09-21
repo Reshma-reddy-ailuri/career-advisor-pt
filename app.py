@@ -268,7 +268,7 @@ else:
             st.session_state.user_data = user_data
             st.session_state.advice_data = generate_career_advice_locally(user_data)
             st.session_state.show_results = True
-            st.experimental_rerun()
+            st.rerun()
     else:
         advice = st.session_state.get("advice_data", {})
         st.header("AI-Powered Career Advisor Results")
