@@ -2,7 +2,6 @@ import streamlit as st
 from graphviz import Digraph
 
 # ------------------- CSS Styling with background --------------------
-API_KEY = st.secrets["api"]["key"]
 st.markdown("""
 <style>
 /* Full-page background */
@@ -108,7 +107,6 @@ if "user_data" not in st.session_state:
 
 # ------------------- Mock Career Advice Logic --------------------
 def generate_career_advice_locally(user_data):
-    # Simple logic to pick roles based on target_role keywords (expand as needed)
     target = user_data.get("target_role", "").lower()
     
     career_options = {
@@ -129,12 +127,11 @@ def generate_career_advice_locally(user_data):
         }
     }
     
-    # Pick matching careers or default list
     selected_careers = {}
     for role, details in career_options.items():
         if target in role:
             selected_careers[role] = details
-    if not selected_careers:  # if no exact match, show all
+    if not selected_careers:
         selected_careers = career_options
     
     roadmap = [
